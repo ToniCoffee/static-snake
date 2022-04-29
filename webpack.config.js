@@ -6,6 +6,9 @@ const cssRules = {
 };
 
 module.exports = {
+	entry: {
+		main: './src/index.js',
+	},
 	output: {
 		filename: 'app.[contenthash].js'
 	},
