@@ -1,5 +1,4 @@
-// import { getStyle } from '/src/utils/common-utils';
-import { clampFromZeroTo } from '/src/utils/math-utils';
+import { getRandomInt } from '/src/utils/math-utils';
 
 import '/src/styles.css';
 
@@ -76,8 +75,12 @@ function Point(x = 0, y = 0) {
 	this.setPos = (x, y) => {
 		this.x = x;
 		this.y = y;
-		this.x = clampFromZeroTo(this.x, COLUMNS - 1);
-		this.y = clampFromZeroTo(this.y, ROWS - 1);
+
+		if(this.x >= COLUMNS) this.x = 0;
+		else if(this.x < 0) this.x = COLUMNS - 1;
+
+		if(this.y >= ROWS) this.y = 0;
+		else if(this.y < 0) this.y = ROWS - 1;
 	};
 }
 
@@ -85,11 +88,12 @@ function Snake(x = 0, y = 0) {
 	this.childs = [new Point(x, y)];
 	this.lastPos = new Point(this.childs[0].x, this.childs[0].y);
 	this.lastChildPos = new Point(this.childs[0].x, this.childs[0].y);
+	this.direction = 0;
 	this.setPos = (obj, x, y) =>{
 		obj.x = x;
 		obj.y = y;
 	};
-	this.move = (child, x, y, index) => {
+	/* this.move = (child, x, y, index) => {
 		if (index === 0) {
 			MAP.clearCell(child.x, child.y);
 			child.setPos(child.x + x, child.y + y);
@@ -101,21 +105,54 @@ function Snake(x = 0, y = 0) {
 			MAP.snakeCell(this.lastPos.x, this.lastPos.y, COLOR_MAP.snakeColor);
 			this.setPos(this.lastPos, this.lastChildPos.x, this.lastChildPos.y);
 		}
+	}; */
+	this.move = (child, x, y, index) => {
+		if (index === 0) {
+			child.setPos(child.x + x, child.y + y);
+		} else {
+			this.setPos(this.lastChildPos, child.x, child.y);
+			child.setPos(this.lastPos.x, this.lastPos.y);
+			this.setPos(this.lastPos, this.lastChildPos.x, this.lastChildPos.y);
+		}
 	};
+	/* this.move = (child, x, y) => {
+		// this.childs[0].x += x;
+		// this.childs[0].y += y;
+		// console.log({x: this.childs[0].x, y: this.childs[0].y});
+		this.setPos(this.lastChildPos, this.lastPos.x, this.lastPos.y);
+		child.setPos(this.lastPos.x, this.lastPos.y);
+		this.setPos(this.lastPos, this.lastChildPos.x, this.lastChildPos.y);
+	}; */
 	this.update = () => {
 		this.setPos(this.lastPos, this.childs[0].x, this.childs[0].y);
 
 		this.childs.forEach((child, index) => {
-			if(direction === 1) this.move(child, 1, 0, index);
-			else if(direction === -1) this.move(child, -1, 0, index);
-			else if(direction === 2) this.move(child, 0, 1, index);
-			else if(direction === -2) this.move(child, 0, -1, index);
+			if(this.direction === 1) this.move(child, 1, 0, index);
+			else if(this.direction === -1) this.move(child, -1, 0, index);
+			else if(this.direction === 2) this.move(child, 0, 1, index);
+			else if(this.direction === -2) this.move(child, 0, -1, index);
 		});
+	};
+	this.render = () => {
+		MAP.snakeCell(this.lastPos.x, this.lastPos.y, COLOR_MAP.snakeColor);
 	};
 }
 
+function Apple(x = 0, y = 0) {
+	this.pos = new Point(x, y);
+	this.setPos = (x, y) =>{
+		this.pos.x = x;
+		this.pos.y = y;
+	};
+	this.render = () => {
+		MAP.clearCell(this.pos.x, this.pos.y);
+		MAP.appleCell(this.pos.x, this.pos.y, COLOR_MAP.appleColor);
+	};
+	this.update = () => {};
+}
+
 const snake = new Snake(6, 16);
-const apple = new Point(9, 3);
+const apple = new Apple(9, 3);
 
 const KEYBOARD = {
 	key: null,
@@ -124,32 +161,6 @@ const KEYBOARD = {
 	notify: (key) => {
 		KEYBOARD.subscribers.map(() => console.log(`notify: ${key}`));
 	}
-};
-
-const ON_DIRECTION = {
-	'1': () => { // move right
-		MAP.clearCell(snake.x, snake.y);
-		snake.setPos(snake.x + 1, snake.y);
-		MAP.snakeCell(snake.x, snake.y, COLOR_MAP.snakeColor);
-	},
-	'-1': () => { // move left
-		MAP.clearCell(snake.x, snake.y);
-		snake.setPos(snake.x - 1, snake.y);
-		MAP.snakeCell(snake.x, snake.y, COLOR_MAP.snakeColor);
-	},
-	'2': () => { // move down
-		MAP.clearCell(snake.x, snake.y);
-		snake.setPos(snake.x, snake.y + 1);
-		MAP.snakeCell(snake.x, snake.y, COLOR_MAP.snakeColor);
-	},
-	'-2': () => { // move up
-		MAP.clearCell(snake.x, snake.y);
-		snake.setPos(snake.x, snake.y - 1);
-		MAP.snakeCell(snake.x, snake.y, COLOR_MAP.snakeColor);
-	},
-	'0': () => {}, // don't move
-	null: () => {},
-	undefined: () => {}
 };
 
 let requestAnimationFrame = window.requestAnimationFrame || 
@@ -176,61 +187,82 @@ function createMap() {
 	}
 }
 
-/* function updateCell(row, column, value, color) {
-	MAP[row][column] = value;
-	snakePos.x = column; 
-	snakePos.y = row; 
-	const cell = document.getElementById(`${row}_${column}`);
-	// KEYBOARD.add(cell);
-	cell.style.backgroundColor = color;
-} */
+function preventSnakeToMoveInOppositeDirection(direction) {
+	if(direction * -1 !== snake.direction) snake.direction = direction;
+}
 
 function setDirection(key) {
-	if(DIRECTION_MAP[key]) direction = DIRECTION_MAP[key];
+	if(DIRECTION_MAP[key]) {
+		direction = DIRECTION_MAP[key];
+		preventSnakeToMoveInOppositeDirection(direction);
+	}
 }
-
-/* function resetDirection() {
-	direction = 0;
-}
-
-function setCell(color) {
-	updateCell(snakePos.y, snakePos.x, 1, color);
-}
-
-function resetCell() {
-	updateCell(snakePos.y, snakePos.x, 0, COLOR_MAP.cellColor);
-} */
 
 function setPause(key) {
 	if(key === PAUSE_MAP.key) pause = !pause;
 }
 
+let isKeyDown = false;
+let keyDown = null;
+
 function listeners() {
 	document.addEventListener('keydown', e => {
-		setDirection(e.code);
 		setPause(e.code);
-		// KEYBOARD.key = e.code;
-		// KEYBOARD.notify(KEYBOARD.key);
-
-		if(e.code === 'KeyU') console.log(direction);
+		isKeyDown = true;
+		keyDown = e.code;
 	});
 
-	/* document.addEventListener('keyup', () => {
-		resetDirection();
-	}); */
+	document.addEventListener('keyup', () => {
+		isKeyDown = false;
+		keyDown = null;
+	});
 }
 
 function onGetApple() {
-	return (snake.x === apple.x && snake.y === apple.y);
+	return (snake.childs[0].x === apple.pos.x && snake.childs[0].y === apple.pos.y);
 }
 
 function update() {
-	// ON_DIRECTION[direction]();
-	/* if(onGetApple()) {
+	
+	if(isKeyDown) {
+		setDirection(keyDown);
+	}
 
-	} */
+	/* snake.update();
 
-	snake.update();
+	if(onGetApple()) {
+		let newApplePosX = getRandomInt(0, COLUMNS);
+		let newApplePosY = getRandomInt(0, ROWS);
+		apple.setPos(newApplePosX, newApplePosY);
+		snake.childs.push(new Point(snake.lastPos.x, snake.lastPos.y));
+	}
+	
+	apple.render(); */
+
+	snake.setPos(snake.lastPos, snake.childs[0].x, snake.childs[0].y);
+
+	snake.childs.forEach((child, index) => {
+		MAP.clearCell(child.x, child.y);
+		if(snake.direction === 1) snake.move(child, 1, 0, index);
+		else if(snake.direction === -1) snake.move(child, -1, 0, index);
+		else if(snake.direction === 2) snake.move(child, 0, 1, index);
+		else if(snake.direction === -2) snake.move(child, 0, -1, index);
+	});
+
+	if(onGetApple()) {
+		let newApplePosX = getRandomInt(0, COLUMNS);
+		let newApplePosY = getRandomInt(0, ROWS);
+		apple.setPos(newApplePosX, newApplePosY);
+		snake.childs.push(new Point(snake.lastPos.x, snake.lastPos.y));
+	}
+	
+	// snake.render();
+
+	snake.childs.forEach((child) => {
+		MAP.snakeCell(child.x, child.y, COLOR_MAP.snakeColor);
+	});
+
+	apple.render();
 }
 
 const ON_PAUSE = {
@@ -250,28 +282,13 @@ const ON_PAUSE = {
 function gameLoop() {
 	requestAnimationFrame(gameLoop);
 	ON_PAUSE[pause]();
-	
-	/* if(!pause) {
-		currentTime = Date.now();
-		let interval = currentTime - initialTime;
-
-		if(interval >= fpsInterval) {
-			// initialTime = currentTime;
-			initialTime = currentTime - (interval % fpsInterval);
-			update();
-		} 
-	}*/
 }
 
 function start() {
 	listeners();
 	createMap();
-	// snake.setPos(6, 16);
-	// apple.setPos(9, 6);
-	// updateCell(16, 6, 1, COLOR_MAP.snakeColor);
-	// MAP.snakeCell(snake.x, snake.y, COLOR_MAP.snakeColor);
-	// MAP.appleCell(apple.x, apple.y);
 	snake.update();
+	apple.render();
 	initialTime = Date.now();
 	requestAnimationFrame(gameLoop);
 }

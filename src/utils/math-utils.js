@@ -23,3 +23,7 @@ export function clampFromZeroTo(value, max) {
 	let temp = value + max - Math.abs(value - max);
 	return (temp + Math.abs(temp)) * 0.25;
 }
+
+export function getRandomInt(min, max) {
+	return Math.floor(Math.random() * (max - min)) + min;
+}
