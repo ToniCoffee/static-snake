@@ -5,6 +5,12 @@ export function getStyle(element, property, asInt = true) {
 	else return parseFloat(getComputedStyle(element).getPropertyValue(property));
 }
 
+export function removeChilds(element) {
+	while(element.hasChildNodes()) {
+		element.removeChild(element.lastChild);
+	}
+}
+
 export function randomColor(withAlpha = false) {
 	const colors = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'];
 	let	color = '#';

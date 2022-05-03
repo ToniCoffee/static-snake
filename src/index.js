@@ -1,14 +1,50 @@
-import { randomColor } from '/src/utils/common-utils';
+import { randomColor, removeChilds } from '/src/utils/common-utils';
 import { getRandomInt } from '/src/utils/math-utils';
 import { checkBit, setBit, clearBit, clearBits, switchBit } from '/src/utils/bit-utils';
 
 import '/src/styles.css';
 
 const TILE_SIZE = 20;
-const DEVICE_WIDTH = window.innerWidth || window.screen.width;
+const MAX_DEVICE_WIDTH = 480;
+let DEVICE_WIDTH = window.innerWidth || window.screen.width;
 const DEVICE_HEIGHT = window.innerHeight || window.screen.height;
+
+if(DEVICE_WIDTH > MAX_DEVICE_WIDTH) DEVICE_WIDTH = MAX_DEVICE_WIDTH;
+
 const ROWS = Math.floor(DEVICE_HEIGHT / TILE_SIZE);
 const COLUMNS = Math.floor(DEVICE_WIDTH / TILE_SIZE);
+
+let snake = null;
+let apple = null;
+let isKeyDown = false;
+let keyDown = null;
+let score = 0;
+let numberOfPoints = 0;
+let level = 1;
+let levelIncreaseThreshold = 15;
+let initialTime = 0;
+let currentTime = 0;
+// let deltaTime = 0;
+let fps = 5;
+let fpsInterval = 1000 / fps;
+const maxFps = 10;
+let animationFrameID = null;
+let requestAnimationFrame = window.requestAnimationFrame || 
+														window.mozRequestAnimationFrame ||
+                            window.webkitRequestAnimationFrame || 
+														window.msRequestAnimationFrame;
+let cancelAnimationFrame = 	window.cancelAnimationFrame || 
+														window.mozCancelAnimationFrame;
+let GAME_STATE = 0x03;
+
+/* GAME_STATE = { // 0000_0000_0000_0011
+	// bit 1 --> alive / dead;
+	// bit 2 --> paused / running;
+	// bit 3 --> moving right;
+	// bit 4 --> moving left;
+	// bit 5 --> moving down;
+	// bit 6 --> moving up;
+}; */
 
 const COLOR_MAP = {
 	noColor: 'unset',
@@ -37,35 +73,18 @@ const COLOR_MAP = {
 	},
 };
 
-const CURRENT_COLOR_MAP = COLOR_MAP.theme_1;
+const CURRENT_COLOR_MAP = COLOR_MAP.classic;
 
 const MAP = {
 	data: [],
 	clearCell: (row, column) => {
-		// MAP.data[row][column] = 0;
 		const cell = document.getElementById(`${row}_${column}`);
 		cell.style.backgroundColor = `${CURRENT_COLOR_MAP.clearColor}`;
 		cell.style.borderColor = `${CURRENT_COLOR_MAP.clearColor}`;
 		cell.style.boxShadow = 'none';
-		// cell.style.backgroundColor = 'none';
-		// cell.style.borderColor = 'none';
 		return cell;
 	},
 };
-
-console.log(COLUMNS);
-console.log(ROWS);
-
-let GAME_STATE = 0x03;
-
-/* GAME_STATE = { // 0000_0000_0000_0011
-	// bit 1 --> alive / dead;
-	// bit 2 --> paused / running;
-	// bit 3 --> moving right;
-	// bit 4 --> moving left;
-	// bit 5 --> moving down;
-	// bit 6 --> moving up;
-}; */
 
 const DIRECTION_MAP = {
 	KeyD: () => {
@@ -106,18 +125,73 @@ WRAPPER.style.height = `${ROWS * TILE_SIZE}px`;
 WRAPPER.style.backgroundColor = `${CURRENT_COLOR_MAP.backgroundColor}`;
 
 const info = document.createElement('div');
-// info.classList.add('info-panel');
-// info.style.width = `${COLUMNS * TILE_SIZE}px`;
-WRAPPER.appendChild(info);
 
-let isKeyDown = false;
-let keyDown = null;
-let score = 0;
-let initialTime = 0;
-let currentTime = 0;
-// let deltaTime = 0;
-let fps = 5;
-let fpsInterval = 1000 / fps;
+function initialPage() {
+	const header = document.createElement('header');
+	const h1 = document.createElement('h1');
+	const div = document.createElement('div');
+	const p1 = document.createElement('p');
+	const p2 = document.createElement('p');
+	const btn = document.createElement('button');
+
+	header.classList.add('initial-page');
+	h1.innerText = 'SNAKE GAME';
+	p1.innerHTML = `<span>Max Score: </span><span>${500}</span>`;
+	p2.innerHTML = `<span>Max Level: </span><span>${20}</span>`;
+	btn.innerText = 'PLAY';
+	btn.onclick = () => {
+		GAME_STATE = clearBit(GAME_STATE, 1);
+		const randomDirection = getRandomInt(2, 6);
+		GAME_STATE = setBit(GAME_STATE, randomDirection);
+		hideInfo();
+		WRAPPER.removeChild(header);
+	};
+
+	div.appendChild(p1);
+	div.appendChild(p2);
+	header.appendChild(h1);
+	header.appendChild(div);
+	header.appendChild(btn);
+	WRAPPER.appendChild(header);
+}
+
+function gameoverPage() {
+	const container = document.createElement('div');
+	const h1 = document.createElement('h1');
+	const div = document.createElement('div');
+	const p1 = document.createElement('p');
+	const p2 = document.createElement('p');
+	const btn = document.createElement('button');
+
+	container.classList.add('initial-page');
+	h1.innerText = 'GAME OVER';
+	p1.innerHTML = `<span>Score: </span><span>${score}</span>`;
+	p2.innerHTML = `<span>Level: </span><span>${level}</span>`;
+	btn.innerText = 'PLAY';
+	btn.onclick = () => {
+		reset();
+		removeChilds(WRAPPER);
+		start();
+	};
+
+	div.appendChild(p1);
+	div.appendChild(p2);
+	container.appendChild(h1);
+	container.appendChild(div);
+	container.appendChild(btn);
+	WRAPPER.appendChild(container);
+}
+
+function reset() {
+	GAME_STATE = 0x03;
+	snake = null;
+	apple = null;
+	score = 0;
+	numberOfPoints = 0;
+	level = 1;
+	fps = 5;
+	fpsInterval = 1000 / fps;
+}
 
 function Point(x = 0, y = 0) {
 	this.x = x;
@@ -158,6 +232,10 @@ function Snake(x = 0, y = 0) {
 			this.setPos(this.lastPos, this.lastChildPos.x, this.lastChildPos.y);
 		}
 	};
+	this.add = () => {
+		const Child = CURRENT_COLOR_MAP?.random ? Cell : Point;
+		this.childs.push(new Child(this.lastPos.x, this.lastPos.y));
+	};
 	this.update = (child, index) => {
 		if(checkBit(GAME_STATE, 2)) this.move(child, 1, 0, index);
 		else if(checkBit(GAME_STATE, 3)) this.move(child, -1, 0, index);
@@ -168,7 +246,6 @@ function Snake(x = 0, y = 0) {
 		const cell = MAP.clearCell(child.x, child.y);
 		cell.style.boxShadow = `${CURRENT_COLOR_MAP.boxShadow}`;
 		if (child.color) {
-			// cell.style.borderRadius = `${'none'}`;
 			cell.style.borderTopLeftRadius = `${'0px'}`;
 			cell.style.borderTopRightRadius = `${'0px'}`;
 			cell.style.borderRadius = `${CURRENT_COLOR_MAP.borderRadius}`;
@@ -202,17 +279,6 @@ function Apple(x = 0, y = 0) {
 	};
 }
 
-const snake = new Snake(6, 16);
-const apple = new Apple(9, 3);
-
-let requestAnimationFrame = window.requestAnimationFrame || 
-														window.mozRequestAnimationFrame ||
-                            window.webkitRequestAnimationFrame || 
-														window.msRequestAnimationFrame;
-
-let cancelAnimationFrame = 	window.cancelAnimationFrame || 
-														window.mozCancelAnimationFrame;
-
 function createMap() {
 	for (let column = 0; column < COLUMNS; column++) {
 		MAP.data.push([]);
@@ -230,42 +296,102 @@ function createMap() {
 	}
 }
 
+function onGetApple() {
+	return (snake.childs[0].x === apple.pos.x && snake.childs[0].y === apple.pos.y);
+}
+
+function infoPanel(text, btnText = null, value = '') {
+	info.classList.add('info-panel');
+	info.classList.add('middle');
+	info.style.display = 'grid';
+	info.innerHTML = `<h2>${text}<span>${value}</span></h2>`;
+	const backDrop = document.createElement('div');
+	backDrop.classList.add('backdrop');
+	const div = document.createElement('div');
+	div.classList.add('info-div');
+	const p1 = document.createElement('p');
+	const p2 = document.createElement('p');
+	p1.innerHTML = `<span>Score: </span><span>${score}</span>`;
+	p2.innerHTML = `<span>Level: </span><span>${level}</span>`;
+
+	div.appendChild(p1);
+	div.appendChild(p2);
+	info.appendChild(backDrop);
+	info.appendChild(div);
+	
+	if(btnText) {
+		const btn = document.createElement('button');
+		btn.innerHTML = btnText;
+		btn.onclick = () => {
+			GAME_STATE = switchBit(GAME_STATE, 1);
+			hideInfo();
+		};
+		info.appendChild(btn);
+	}
+}
+
+function popupPanel(text, value = '') {
+	const popup = document.createElement('div');
+	WRAPPER.appendChild(popup);
+	popup.classList.add('popup');
+	popup.classList.add('anim-pop-up');
+	popup.style.display = 'block';
+	popup.innerHTML = `<p>${text}<span>${value}</span></p>`;
+	window.setTimeout(() => {
+		WRAPPER.removeChild(popup);
+		popup.style.display = 'none';
+		popup.innerHTML = '';
+	}, 4000);
+	return popup;
+}
+
+function hideInfo() {
+	info.style.display = 'none';
+	info.innerHTML = '';
+}
+
+function increaseLevel() {
+	numberOfPoints = 0;
+	level += 1;
+	if(fps < maxFps) {
+		fps += 1;
+		fpsInterval = 1000 / fps;
+	}
+	popupPanel('Level: ', level).style.border = '1px solid #0f0';
+}
+
+function increaseScore() {
+	score += 10;
+	numberOfPoints += 1;
+	if(numberOfPoints >= levelIncreaseThreshold) increaseLevel();
+	else popupPanel('Score: ', score);
+}
+
+function onGameover(child, index) {
+	if(index > 0) {
+		if(snake.childs[0].x === child.x && snake.childs[0].y === child.y) {
+			cancelAnimationFrame(animationFrameID);
+			gameoverPage();
+		}
+	}
+}
+
 function listeners() {
 	document.addEventListener('keydown', e => {
 		isKeyDown = true;
 		keyDown = e.code;
-		if(keyDown === PAUSE_MAP.key) GAME_STATE = switchBit(GAME_STATE, 1);
+		if(keyDown === PAUSE_MAP.key) {
+			GAME_STATE = switchBit(GAME_STATE, 1);
+			if(!checkBit(GAME_STATE, 1)) hideInfo();
+		}
+
+		if(keyDown === 'KeyU') console.log(fps);
 	});
 
 	document.addEventListener('keyup', () => {
 		isKeyDown = false;
 		keyDown = null;
 	});
-}
-
-function onGetApple() {
-	return (snake.childs[0].x === apple.pos.x && snake.childs[0].y === apple.pos.y);
-}
-
-function showInfo(text, btnText = null, value = '') {
-	info.classList.remove('middle');
-	info.classList.add('info-panel');
-	info.classList.add('anim-pop-up');
-	info.style.display = 'block';
-	info.innerHTML = `<p>${text}<span>${value}</span></p>`;
-	if(btnText) {
-		info.classList.remove('anim-pop-up');
-		info.classList.add('middle');
-		info.innerHTML += `<button onClick='${() => { 
-			GAME_STATE = switchBit(GAME_STATE, 1);
-			hideInfo();
-		}}'>${btnText}</button>`;
-	}
-}
-
-function hideInfo() {
-	info.style.display = 'none';
-	info.innerHTML = '';
 }
 
 function update() {
@@ -280,25 +406,15 @@ function update() {
 	snake.childs.forEach((child, index) => {
 		snake.update(child, index);
 		snake.render(child);
-
-		if(index > 0) {
-			if(snake.childs[0].x === child.x && snake.childs[0].y === child.y) {
-				console.log('Game over!');
-			}
-		}
+		onGameover(child, index);
 	});
 
 	if(onGetApple()) {
 		MAP.clearCell(apple.pos.x, apple.pos.y);
 		apple.update();
 		apple.render();
-
-		const Child = CURRENT_COLOR_MAP?.random ? Cell : Point;
-		snake.childs.push(new Child(snake.lastPos.x, snake.lastPos.y));
-
-		score += 10;
-		showInfo('Score: ', null, score);
-		window.setTimeout(hideInfo, 4000);
+		snake.add();
+		increaseScore();
 	}
 }
 
@@ -314,23 +430,30 @@ const ON_PAUSE = {
 		}
 	},
 	true: () => {
-		showInfo('Ready To Play?', 'START');
+		infoPanel('STATE', 'CONTINUE');
 	}
 };
 
 function gameLoop() {
-	requestAnimationFrame(gameLoop);
+	animationFrameID = requestAnimationFrame(gameLoop);
 	ON_PAUSE[checkBit(GAME_STATE, 1)]();
 }
 
-function start() {
+function awake() {
 	listeners();
+}
+
+function start() {
+	initialPage();
 	createMap();
-	// snake.update();
+	WRAPPER.appendChild(info);
+	snake = new Snake(6, 16);
+	apple = new Apple(9, 3);
 	snake.render(snake.childs[0]);
 	apple.render();
 	initialTime = Date.now();
 	requestAnimationFrame(gameLoop);
 }
 
+awake();
 start();
