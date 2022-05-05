@@ -1,31 +1,9 @@
 import { randomColor, removeChilds, onMobileDoubleClick } from '/src/utils/common-utils';
 import { getRandomInt } from '/src/utils/math-utils';
 import { checkBit, setBit, clearBit, clearBits, switchBit } from '/src/utils/bit-utils';
+import { THEMES } from '/src/themes';
 
 import '/src/styles.css';
-
-const TILE_SIZE = 20;
-const MAX_DEVICE_WIDTH = 480;
-let DEVICE_WIDTH = window.innerWidth || window.screen.width;
-const DEVICE_HEIGHT = window.innerHeight || window.screen.height;
-
-if(DEVICE_WIDTH > MAX_DEVICE_WIDTH) DEVICE_WIDTH = MAX_DEVICE_WIDTH;
-
-const ROWS = Math.floor(DEVICE_HEIGHT / TILE_SIZE);
-const COLUMNS = Math.floor(DEVICE_WIDTH / TILE_SIZE);
-
-const KEY_MAP = {
-	KeyD: 'KeyD',
-	ArrowRight: 'ArrowRight',
-	KeyA: 'KeyA',
-	ArrowLeft: 'ArrowLeft',
-	KeyS: 'KeyS',
-	ArrowDown: 'ArrowDown',
-	KeyW: 'KeyW',
-	ArrowUp: 'ArrowUp',
-	KeyP: 'KeyP',
-	Space: 'Space'
-};
 
 let snake = null;
 let apple = null;
@@ -48,8 +26,9 @@ let requestAnimationFrame = window.requestAnimationFrame ||
 														window.msRequestAnimationFrame;
 let cancelAnimationFrame = 	window.cancelAnimationFrame || 
 														window.mozCancelAnimationFrame;
-let GAME_STATE = 0x03;
+let CURRENT_COLOR_MAP = THEMES.classic;
 
+let GAME_STATE = 0x03;
 /* GAME_STATE = { // 0000_0000_0000_0011
 	// bit 1 --> alive / dead;
 	// bit 2 --> paused / running;
@@ -59,37 +38,30 @@ let GAME_STATE = 0x03;
 	// bit 6 --> moving up;
 }; */
 
-const COLOR_MAP = {
-	noColor: 'unset',
-	classic: {
-		backgroundColor: '#000',
-		cellColor: '#000',
-		cellBorderColor: '#000',
-		snakeColor: '#0f0',
-		appleColor: '#f00',
-		clearColor: '#000',
-		borderRadius: '0px',
-		boxShadow: 'none',
-		isClassic: true
-	},
-	theme_1: {
-		backgroundColor: '#030',
-		cellColor: '#770',
-		cellBorderColor: '#770',
-		snakeColor: '#0f0',
-		appleColor: '#f00',
-		clearColor: '#770',
-		borderRadius: '7px',
-		boxShadow: '0px 0px 5px #fff',
-		random: `${randomColor()}`,
-		isClassic: false
-	},
-};
+const TILE_SIZE = 20;
+const MAX_DEVICE_WIDTH = 480;
+let DEVICE_WIDTH = window.innerWidth || window.screen.width;
+const DEVICE_HEIGHT = window.innerHeight || window.screen.height;
 
-const CURRENT_COLOR_MAP = COLOR_MAP.classic;
+if(DEVICE_WIDTH > MAX_DEVICE_WIDTH) DEVICE_WIDTH = MAX_DEVICE_WIDTH;
+
+const ROWS = Math.floor(DEVICE_HEIGHT / TILE_SIZE);
+const COLUMNS = Math.floor(DEVICE_WIDTH / TILE_SIZE);
+
+const WRAPPER = document.querySelector('.wrapper');
+WRAPPER.style.width = `${COLUMNS * TILE_SIZE}px`;
+WRAPPER.style.height = `${ROWS * TILE_SIZE}px`;
+WRAPPER.style.backgroundColor = `${CURRENT_COLOR_MAP.backgroundColor}`;
+
+const info = document.createElement('div');
 
 const MAP = {
 	data: [],
+	setCellRotation: (row, column, degrees) => {
+		const cell = document.getElementById(`${row}_${column}`);
+		cell.style.transform = `rotate(${degrees}deg)`;
+		return cell;
+	},
 	clearCell: (row, column) => {
 		const cell = document.getElementById(`${row}_${column}`);
 		cell.style.backgroundColor = `${CURRENT_COLOR_MAP.clearColor}`;
@@ -97,6 +69,19 @@ const MAP = {
 		cell.style.boxShadow = 'none';
 		return cell;
 	},
+};
+
+const KEY_MAP = {
+	KeyD: 'KeyD',
+	ArrowRight: 'ArrowRight',
+	KeyA: 'KeyA',
+	ArrowLeft: 'ArrowLeft',
+	KeyS: 'KeyS',
+	ArrowDown: 'ArrowDown',
+	KeyW: 'KeyW',
+	ArrowUp: 'ArrowUp',
+	KeyP: 'KeyP',
+	Space: 'Space'
 };
 
 function directionRight() {
@@ -140,22 +125,64 @@ const DIRECTION_MAP = {
 	undefined: () => {} 
 };
 
-const WRAPPER = document.querySelector('.wrapper');
-WRAPPER.style.width = `${COLUMNS * TILE_SIZE}px`;
-WRAPPER.style.height = `${ROWS * TILE_SIZE}px`;
-WRAPPER.style.backgroundColor = `${CURRENT_COLOR_MAP.backgroundColor}`;
+function customSelectOptions(appendTo, labelText = '', options = {}, onSelectOption = () => {}) {
+	const select = document.createElement('div');
+	const pSelect = document.createElement('p');
+	const btnSelect = document.createElement('button');
+	const optionsContainer = document.createElement('div');
 
-const info = document.createElement('div');
+	btnSelect.innerText = '^';
+	btnSelect.classList.add('custom-select-btn');
+	optionsContainer.classList.add('custom-select-options-container');
+	optionsContainer.classList.add('display-none');
+	select.id = 'custom-select';
+	select.classList.add('custom-select');
+
+	for (const key in options) {
+		const option = document.createElement('div');
+		option.classList.add('custom-select-options');
+		option.innerText = key;
+		optionsContainer.appendChild(option);
+		option.onclick = (e) => {
+			pSelect.innerText = e.target.innerText;
+			onSelectOption(e);
+		};
+	}
+
+	pSelect.innerText = optionsContainer.children[0].innerText;
+
+	btnSelect.onclick = () => {
+		optionsContainer.classList.toggle('display-none');
+	};
+
+	select.appendChild(pSelect);
+	select.appendChild(btnSelect);
+
+	if(appendTo){
+		if(labelText && labelText.length > 0) {
+			const label = document.createElement('label');
+			label.innerText = labelText;
+			label.htmlFor = 'custom-select';
+			appendTo.appendChild(label);
+		}
+		appendTo.appendChild(select);
+		appendTo.appendChild(optionsContainer);
+	}
+}
 
 function initialPage() {
 	const header = document.createElement('header');
 	const h1 = document.createElement('h1');
-	const div = document.createElement('div');
+	const divTheme = document.createElement('div');
+	const divScore = document.createElement('div');
 	const p1 = document.createElement('p');
 	const p2 = document.createElement('p');
 	const btn = document.createElement('button');
 
 	header.classList.add('initial-page');
+	divTheme.classList.add('initial-page-theme');
+	divScore.classList.add('initial-page-score');
+	btn.classList.add('initial-page-btn-anim');
 	h1.innerText = 'SNAKE GAME';
 	p1.innerHTML = `<span>Max Score: </span><span>${500}</span>`;
 	p2.innerHTML = `<span>Max Level: </span><span>${20}</span>`;
@@ -166,12 +193,17 @@ function initialPage() {
 		GAME_STATE = setBit(GAME_STATE, randomDirection);
 		hideInfo();
 		WRAPPER.removeChild(header);
+		start();
 	};
 
-	div.appendChild(p1);
-	div.appendChild(p2);
+	divScore.appendChild(p1);
+	divScore.appendChild(p2);
+	customSelectOptions(divTheme, 'Choose Theme', THEMES, (e) => {
+		CURRENT_COLOR_MAP = THEMES[e.target.innerText];
+	});
 	header.appendChild(h1);
-	header.appendChild(div);
+	header.appendChild(divTheme);
+	header.appendChild(divScore);
 	header.appendChild(btn);
 	WRAPPER.appendChild(header);
 }
@@ -179,12 +211,14 @@ function initialPage() {
 function gameoverPage() {
 	const container = document.createElement('div');
 	const h1 = document.createElement('h1');
-	const div = document.createElement('div');
+	const divScore = document.createElement('div');
 	const p1 = document.createElement('p');
 	const p2 = document.createElement('p');
 	const btn = document.createElement('button');
 
 	container.classList.add('initial-page');
+	btn.classList.add('initial-page-btn-anim');
+	divScore.classList.add('initial-page-score');
 	h1.innerText = 'GAME OVER';
 	p1.innerHTML = `<span>Score: </span><span>${score}</span>`;
 	p2.innerHTML = `<span>Level: </span><span>${level}</span>`;
@@ -192,13 +226,13 @@ function gameoverPage() {
 	btn.onclick = () => {
 		reset();
 		removeChilds(WRAPPER);
-		start();
+		initialize();
 	};
 
-	div.appendChild(p1);
-	div.appendChild(p2);
+	divScore.appendChild(p1);
+	divScore.appendChild(p2);
 	container.appendChild(h1);
-	container.appendChild(div);
+	container.appendChild(divScore);
 	container.appendChild(btn);
 	WRAPPER.appendChild(container);
 }
@@ -212,6 +246,7 @@ function reset() {
 	level = 1;
 	fps = 5;
 	fpsInterval = 1000 / fps;
+	CURRENT_COLOR_MAP = THEMES.classic;
 }
 
 function Point(x = 0, y = 0) {
@@ -242,10 +277,11 @@ function Snake(x = 0, y = 0) {
 		obj.x = x;
 		obj.y = y;
 	};
-	this.move = (child, x, y, index) => {
+	this.move = (child, x, y, index, rotation) => {
 		if (index === 0) {
 			MAP.clearCell(this.lastPos.x, this.lastPos.y);
 			child.setPos(child.x + x, child.y + y);
+			MAP.setCellRotation(child.x, child.y, rotation);
 		} else {
 			MAP.clearCell(child.x, child.y);
 			this.setPos(this.lastChildPos, child.x, child.y);
@@ -258,10 +294,10 @@ function Snake(x = 0, y = 0) {
 		this.childs.push(new Child(this.lastPos.x, this.lastPos.y));
 	};
 	this.update = (child, index) => {
-		if(checkBit(GAME_STATE, 2)) this.move(child, 1, 0, index);
-		else if(checkBit(GAME_STATE, 3)) this.move(child, -1, 0, index);
-		else if(checkBit(GAME_STATE, 4)) this.move(child, 0, 1, index);
-		else if(checkBit(GAME_STATE, 5)) this.move(child, 0, -1, index);
+		if(checkBit(GAME_STATE, 2)) this.move(child, 1, 0, index, 90);
+		else if(checkBit(GAME_STATE, 3)) this.move(child, -1, 0, index, -90);
+		else if(checkBit(GAME_STATE, 4)) this.move(child, 0, 1, index, 180);
+		else if(checkBit(GAME_STATE, 5)) this.move(child, 0, -1, index, 0);
 	};
 	this.render = (child) => {
 		const cell = MAP.clearCell(child.x, child.y);
@@ -482,12 +518,15 @@ function gameLoop() {
 	ON_PAUSE[checkBit(GAME_STATE, 1)]();
 }
 
+function initialize() {
+	initialPage();
+}
+
 function awake() {
 	listeners();
 }
 
 function start() {
-	initialPage();
 	createMap();
 	WRAPPER.appendChild(info);
 	snake = new Snake(6, 16);
@@ -499,4 +538,4 @@ function start() {
 }
 
 awake();
-start();
+initialize();
