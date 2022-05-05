@@ -145,6 +145,7 @@ function customSelectOptions(appendTo, labelText = '', options = {}, onSelectOpt
 		optionsContainer.appendChild(option);
 		option.onclick = (e) => {
 			pSelect.innerText = e.target.innerText;
+			optionsContainer.classList.toggle('display-none');
 			onSelectOption(e);
 		};
 	}

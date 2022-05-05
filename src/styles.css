@@ -14,6 +14,7 @@ body {
   height: 100vh;
 	overflow: hidden;
 	touch-action: none;
+	user-select: none;
 }
 
 .wrapper {
@@ -71,6 +72,10 @@ body {
 	transform: rotate(180deg);
 }
 
+.custom-select-btn:hover {
+	cursor: pointer;
+}
+
 .custom-select-options-container {
 	width: 100%;
 	position: absolute;
@@ -82,9 +87,15 @@ body {
 	background-color: #aaa;
 	background-color: #eee7;
 	backdrop-filter: blur(10px);
+	border-radius: 7px;
+	outline: 1px solid #333;
 	color: #333;
 	width: 100%;
 	padding: .4em 0;
+}
+
+.custom-select-options:hover {
+	cursor: pointer;
 }
 
 .initial-page-score {
@@ -104,6 +115,10 @@ body {
 	color: #333;
 	font-weight: bold;
 	animation: cyclic 2s linear infinite;
+}
+
+.initial-page-btn-anim:hover {
+	cursor: pointer;
 }
 
 .info-panel {
@@ -162,6 +177,10 @@ body {
 	margin-top: 1em;
 	padding: .5em 1em;
 	animation: cyclic 4s linear infinite;
+}
+
+.info-panel button:hover {
+	cursor: pointer;
 }
 
 .popup {
