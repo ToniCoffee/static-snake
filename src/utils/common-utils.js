@@ -18,3 +18,13 @@ export function randomColor(withAlpha = false) {
 	else for (let i = 0; i < 8; i++) color += colors[getRandomInt(0, 16)];
 	return color;
 }
+
+export function isMobileDevice() {
+	return window.matchMedia('only screen and (max-width: 760px)').matches;
+}
+
+export function onMobileDoubleClick(e, callBack = () => {}, lastClickTime = 0, timeBetweenTaps = 200) {
+	let time = new Date().getTime();
+	if (time - lastClickTime < timeBetweenTaps) callBack(e);
+	return time;
+}

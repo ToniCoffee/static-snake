@@ -1,4 +1,4 @@
-import { randomColor, removeChilds } from '/src/utils/common-utils';
+import { randomColor, removeChilds, onMobileDoubleClick } from '/src/utils/common-utils';
 import { getRandomInt } from '/src/utils/math-utils';
 import { checkBit, setBit, clearBit, clearBits, switchBit } from '/src/utils/bit-utils';
 
@@ -13,6 +13,19 @@ if(DEVICE_WIDTH > MAX_DEVICE_WIDTH) DEVICE_WIDTH = MAX_DEVICE_WIDTH;
 
 const ROWS = Math.floor(DEVICE_HEIGHT / TILE_SIZE);
 const COLUMNS = Math.floor(DEVICE_WIDTH / TILE_SIZE);
+
+const KEY_MAP = {
+	KeyD: 'KeyD',
+	ArrowRight: 'ArrowRight',
+	KeyA: 'KeyA',
+	ArrowLeft: 'ArrowLeft',
+	KeyS: 'KeyS',
+	ArrowDown: 'ArrowDown',
+	KeyW: 'KeyW',
+	ArrowUp: 'ArrowUp',
+	KeyP: 'KeyP',
+	Space: 'Space'
+};
 
 let snake = null;
 let apple = null;
@@ -86,37 +99,45 @@ const MAP = {
 	},
 };
 
+function directionRight() {
+	if(!checkBit(GAME_STATE, 3)) {
+		GAME_STATE = clearBits(GAME_STATE, [3, 4, 5]);
+		GAME_STATE = setBit(GAME_STATE, 2);
+	}
+}
+
+function directionLeft() {
+	if(!checkBit(GAME_STATE, 2)) {
+		GAME_STATE = clearBits(GAME_STATE, [2, 4, 5]);
+		GAME_STATE = setBit(GAME_STATE, 3);
+	}
+}
+
+function directionDown() {
+	if(!checkBit(GAME_STATE, 5)) {
+		GAME_STATE = clearBits(GAME_STATE, [2, 3, 5]);
+		GAME_STATE = setBit(GAME_STATE, 4);
+	}
+}
+
+function directionUp() {
+	if(!checkBit(GAME_STATE, 4)) {
+		GAME_STATE = clearBits(GAME_STATE, [2, 3, 4]);
+		GAME_STATE = setBit(GAME_STATE, 5);
+	}
+}
+
 const DIRECTION_MAP = {
-	KeyD: () => {
-		if(!checkBit(GAME_STATE, 3)) {
-			GAME_STATE = clearBits(GAME_STATE, [3, 4, 5]);
-			GAME_STATE = setBit(GAME_STATE, 2);
-		}
-	}, // right
-	KeyA: () => {
-		if(!checkBit(GAME_STATE, 2)) {
-			GAME_STATE = clearBits(GAME_STATE, [2, 4, 5]);
-			GAME_STATE = setBit(GAME_STATE, 3);
-		}
-	}, // left
-	KeyS: () => {
-		if(!checkBit(GAME_STATE, 5)) {
-			GAME_STATE = clearBits(GAME_STATE, [2, 3, 5]);
-			GAME_STATE = setBit(GAME_STATE, 4);
-		}
-	},	// down
-	KeyW: () => {
-		if(!checkBit(GAME_STATE, 4)) {
-			GAME_STATE = clearBits(GAME_STATE, [2, 3, 4]);
-			GAME_STATE = setBit(GAME_STATE, 5);
-		}
-	}, // up
+	KeyD: directionRight, // right
+	ArrowRight: directionRight,
+	KeyA: directionLeft, // left
+	ArrowLeft: directionLeft, // left
+	KeyS: directionDown,	// down
+	ArrowDown: directionDown,	// down
+	KeyW: directionUp, // up
+	ArrowUp: directionUp, // up
 	null: () => {},
 	undefined: () => {} 
-};
-
-const PAUSE_MAP = {
-	key: 'KeyP'
 };
 
 const WRAPPER = document.querySelector('.wrapper');
@@ -376,21 +397,43 @@ function onGameover(child, index) {
 	}
 }
 
+function switchPause() {
+	GAME_STATE = switchBit(GAME_STATE, 1);
+	if(!checkBit(GAME_STATE, 1)) hideInfo();
+}
+
 function listeners() {
 	document.addEventListener('keydown', e => {
 		isKeyDown = true;
 		keyDown = e.code;
-		if(keyDown === PAUSE_MAP.key) {
-			GAME_STATE = switchBit(GAME_STATE, 1);
-			if(!checkBit(GAME_STATE, 1)) hideInfo();
-		}
-
-		if(keyDown === 'KeyU') console.log(fps);
+		if(keyDown === KEY_MAP.KeyP || keyDown === KEY_MAP.Space) switchPause();
 	});
-
+	
 	document.addEventListener('keyup', () => {
 		isKeyDown = false;
 		keyDown = null;
+	});
+
+	let startX, startY, offset = 10, lastClickTime = 0;
+
+	document.addEventListener('touchstart', e => {
+		e.preventDefault();
+		lastClickTime = onMobileDoubleClick(e, switchPause, lastClickTime, 200);
+		startX = e.touches[0].clientX;
+		startY = e.touches[0].clientY;
+	});
+
+	document.addEventListener('touchmove', e => {
+		if(e.touches[0].clientX > startX + offset) keyDown = KEY_MAP.KeyD;
+		else if(e.touches[0].clientX < startX - offset) keyDown = KEY_MAP.KeyA;
+		else if(e.touches[0].clientY > startY + offset) keyDown = KEY_MAP.KeyS;
+		else if(e.touches[0].clientY < startY - offset) keyDown = KEY_MAP.KeyW;
+		isKeyDown = true;
+	});
+
+	document.addEventListener('touchend', () => {
+		keyDown = null;
+		isKeyDown = false;
 	});
 }
 
