@@ -1,4 +1,5 @@
 const htmlWebpackPlugin = require('html-webpack-plugin');
+const path = require('path');
 
 const cssRules = {
 	test: /\.css$/i,
@@ -10,6 +11,7 @@ module.exports = {
 		main: './src/index.js',
 	},
 	output: {
+		path: path.resolve(__dirname, 'docs'),
 		filename: 'app.[contenthash].js'
 	},
 	module: {
